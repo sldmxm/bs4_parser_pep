@@ -9,21 +9,15 @@ from tqdm import tqdm
 from configs import configure_argument_parser, configure_logging
 from constants import BASE_DIR, MAIN_DOC_URL, PEP_DOC_URL, EXPECTED_STATUS
 from outputs import control_output
-from utils import get_response, find_tag, find_string_tag
+from exceptions import ParserFindTagException
+from utils import get_response, find_tag, get_soup
 
 
 def whats_new(session):
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
-    response = get_response(session, whats_new_url)
-    if response is None:
-        return
-
-    soup = BeautifulSoup(response.text, features='lxml')
-    main_div = find_tag(
-        soup, 'section', attrs={'id': 'what-s-new-in-python'}
-    )
+    soup = get_soup(session, whats_new_url)
     div_with_ul = find_tag(
-        main_div, 'div', attrs={'class': 'toctree-wrapper'}
+        soup, 'div', attrs={'class': 'toctree-wrapper'}
     )
     sections_by_python = div_with_ul.find_all(
         'li', attrs={'class': 'toctree-l1'}
@@ -46,11 +40,7 @@ def whats_new(session):
 
 
 def latest_versions(session):
-    response = get_response(session, MAIN_DOC_URL)
-    if response is None:
-        return
-
-    soup = BeautifulSoup(response.text, 'lxml')
+    soup = get_soup(session, MAIN_DOC_URL)
     sidebar = find_tag(soup, 'div', {'class': 'sphinxsidebarwrapper'})
     ul_tags = sidebar.find_all('ul')
     for ul in ul_tags:
@@ -58,7 +48,7 @@ def latest_versions(session):
             a_tags = ul.find_all('a')
             break
     else:
-        raise Exception('Ничего не нашлось')
+        raise ParserFindTagException('Ничего не нашлось')
 
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
     pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
@@ -78,10 +68,7 @@ def latest_versions(session):
 
 def download(session):
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
-    response = get_response(session, downloads_url)
-    if response is None:
-        return
-    soup = BeautifulSoup(response.text, 'lxml')
+    soup = get_soup(session, downloads_url)
     downloads = find_tag(soup, 'table', {'class': 'docutils'})
     pdf_a4_tag = find_tag(
         downloads, 'a', {'href': re.compile(r'.+pdf-a4\.zip$')}
@@ -101,25 +88,20 @@ def download(session):
 
 def pep(session):
     def get_pep_status_in_doc(link):
-        response = get_response(session, link)
-        if response is None:
-            return
-        soup = BeautifulSoup(response.text, 'lxml')
+        soup = get_soup(session, link)
         pep_overview = find_tag(
             soup,
             'dl',
             {'class': 'rfc2822 field-list simple'}
         )
-        pep_status = find_string_tag(
+        pep_status = find_tag(
             pep_overview,
-            'Status'
+            'Status',
+            string=True,
         ).parent.find_next_sibling('dd')
         return pep_status.text
 
-    response = get_response(session, PEP_DOC_URL)
-    if response is None:
-        return
-    soup = BeautifulSoup(response.text, 'lxml')
+    soup = get_soup(session, PEP_DOC_URL)
     pep_by_index = find_tag(soup, 'section', {'id': 'numerical-index'})
     pep_table = find_tag(
         pep_by_index,
