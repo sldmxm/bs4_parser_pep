@@ -17,3 +17,8 @@ EXPECTED_STATUS = {
 }
 PRETTY_OUTPUT = 'pretty'
 FILE_OUTPUT = 'file'
+LOG_FORMAT = '"%(asctime)s - [%(levelname)s] - %(message)s"'
+DT_FORMAT = '%d.%m.%Y %H:%M:%S'
+LOG_DIR = 'logs'
+LOG_FILE = 'parser.log'
+RESULTS_DIR = 'results'

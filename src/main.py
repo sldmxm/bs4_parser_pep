@@ -2,7 +2,6 @@ import re
 import logging
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
 import requests_cache
 from tqdm import tqdm
 
@@ -10,7 +9,7 @@ from configs import configure_argument_parser, configure_logging
 from constants import BASE_DIR, MAIN_DOC_URL, PEP_DOC_URL, EXPECTED_STATUS
 from outputs import control_output
 from exceptions import ParserFindTagException
-from utils import get_response, find_tag, get_soup
+from utils import find_tag, get_soup, get_response
 
 
 def whats_new(session):
@@ -27,10 +26,7 @@ def whats_new(session):
     for section in tqdm(sections_by_python):
         version_a_tag = find_tag(section, 'a')
         version_link = urljoin(whats_new_url, version_a_tag['href'])
-        response = get_response(session, version_link)
-        if response is None:
-            continue
-        soup = BeautifulSoup(response.text, 'lxml')
+        soup = get_soup(session, version_link)
         h1 = find_tag(soup, 'h1')
         dl = find_tag(soup, 'dl')
         dl_text = dl.text.replace('\n', ' ')
@@ -79,8 +75,6 @@ def download(session):
     downloads_dir.mkdir(exist_ok=True)
     archive_path = downloads_dir / filename
     response = get_response(session, archive_url)
-    if response is None:
-        return
     with open(archive_path, 'wb') as file:
         file.write(response.content)
     logging.info(f'Архив был загружен и сохранён: {archive_path}')
@@ -135,7 +129,7 @@ def pep(session):
                      f'Статус в карточке: {status_in_doc} '
                      )
 
-    results = [('Статус', 'Количество')]
+    results = [('Status', 'Amount')]
     for status, count in statuses_count.items():
         results.append((status, count))
     results.append(('Total', total_pep))
@@ -163,7 +157,12 @@ def main():
         session.cache.clear()
 
     parser_mode = args.mode
-    results = MODE_TO_FUNCTION[parser_mode](session)
+
+    try:
+        results = MODE_TO_FUNCTION[parser_mode](session)
+    except ParserFindTagException as e:
+        logging.error(e, exc_info=True)
+        results = None
 
     if results is not None:
         control_output(results, args)
