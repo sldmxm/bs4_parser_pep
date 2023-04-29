@@ -3,7 +3,6 @@ from requests import RequestException
 
 from exceptions import (
     ParserFindTagException,
-    ParserNoneResponseException,
     ParserRequestException,
 )
 
@@ -14,16 +13,11 @@ def get_response(session, url):
         response.encoding = 'utf-8'
         return response
     except RequestException:
-        raise ParserRequestException(
-            f'Ошибка при загрузке страницы {url}'
-        ) from None
+        raise ParserRequestException(f'Ошибка при загрузке страницы {url}')
 
 
 def get_soup(session, url):
     response = get_response(session, url)
-    if response is None:
-        error_msg = f'Пустой ответ сервера {url}'
-        raise ParserNoneResponseException(error_msg)
     return BeautifulSoup(response.text, features='lxml')
 
 
